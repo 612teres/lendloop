@@ -1,4 +1,4 @@
-# LendLoop 🔄
+# LendLoop
 
 > **"Borrow what you need. Lend what you don't."**  
 > A multi-user resource-sharing platform built around secure ownership boundaries, transactional loan management, and event-driven automation.
@@ -7,7 +7,7 @@ LendLoop allows neighbors to share tools, reserve equipment, track availability 
 
 ---
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 - **Frontend & App Framework**: [Next.js](https://nextjs.org) (App Router, React 19, Tailwind CSS)
 - **Authentication**: [Clerk](https://clerk.com) (JWT-based session authentication)
@@ -17,7 +17,7 @@ LendLoop allows neighbors to share tools, reserve equipment, track availability 
 
 ---
 
-## 🏛️ System Architecture & Event-Driven Outbox
+## System Architecture & Event-Driven Outbox
 
 ```mermaid
 flowchart TD
@@ -81,7 +81,7 @@ The Docker Compose service passes `NEXT_PUBLIC_CONVEX_URL` to n8n as `CONVEX_URL
 
 ---
 
-## 🔒 Security & Data-Minimization Decisions
+## Security & Data-Minimization Decisions
 
 | Security Area | Implementation Decision | Engineering Rationale |
 | :--- | :--- | :--- |
@@ -96,16 +96,16 @@ The Docker Compose service passes `NEXT_PUBLIC_CONVEX_URL` to n8n as `CONVEX_URL
 
 ---
 
-## 📋 Role-Based Access Control (RBAC) Rules
+## Role-Based Access Control (RBAC) Rules
 
 LendLoop enforces two distinct roles at the database layer (not just in UI components):
 
-### 👑 Administrator (`admin`)
+### Administrator (`admin`)
 - Can remove any tool listing in the neighborhood (moderation).
 - Can inspect all active and historical loans across the entire community.
 - Can designate community members as **"Trusted Lenders"** (granting verified credibility badges on their listings).
 
-### 👤 Neighbor (`user`)
+### Neighbor (`user`)
 - Can create, edit, and archive **only their own** tool listings.
 - Cannot borrow their own tool (`borrowerId !== lenderId`).
 - Only the tool owner can **approve** or **decline** borrow requests.
@@ -115,7 +115,7 @@ LendLoop enforces two distinct roles at the database layer (not just in UI compo
 
 ---
 
-## 📂 Project Structure
+## Project Structure
 
 ```
 lendloop/
@@ -158,7 +158,7 @@ lendloop/
 
 ---
 
-## 🚀 Getting Started
+## Getting Started
 
 ### 1. Prerequisites
 - [Node.js](https://nodejs.org) (v18.17+ or v20+)
@@ -234,7 +234,7 @@ Open **[http://localhost:3000](http://localhost:3000)** to view LendLoop.
 
 ---
 
-## 🧪 Automated Test Suite
+## Automated Test Suite
 
 LendLoop includes a production test suite covering authorization, loan state transitions, negative security cases, cryptographic integrity, and idempotency:
 
@@ -252,7 +252,7 @@ npm test
 
 ---
 
-## 🚢 What Would Change for Production Deployment
+## What Would Change for Production Deployment
 
 To run LendLoop at commercial scale in production, the following enhancements should be introduced:
 
