@@ -126,3 +126,55 @@ export const getLoanAutomationHistory = query({
       .collect();
   },
 });
+
+/**
+ * Query: Fetch recent notifications for the authenticated user (borrower or lender).
+ */
+export const getMyNotifications = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return [];
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
+      .unique();
+
+    if (!user) return [];
+
+    // Fetch user's loans (borrowed or lent)
+    const borrowedLoans = await ctx.db
+      .query("loans")
+      .withIndex("by_borrowerId", (q) => q.eq("borrowerId", user._id))
+      .collect();
+
+    const lentLoans = await ctx.db
+      .query("loans")
+      .withIndex("by_lenderId", (q) => q.eq("lenderId", user._id))
+      .collect();
+
+    const userLoanIds = new Set([
+      ...borrowedLoans.map((l) => l._id),
+      ...lentLoans.map((l) => l._id),
+    ]);
+
+    if (userLoanIds.size === 0) return [];
+
+    // Collect automation logs for these loans
+    const allLogs = await ctx.db.query("automationLogs").order("desc").take(50);
+    const userLogs = allLogs.filter((log) => userLoanIds.has(log.loanId));
+
+    return await Promise.all(
+      userLogs.slice(0, 15).map(async (log) => {
+        const loan = await ctx.db.get(log.loanId);
+        return {
+          ...log,
+          toolName: loan?.toolNameSnapshot ?? "Tool",
+          loanStatus: loan?.status ?? "unknown",
+        };
+      })
+    );
+  },
+});
+
