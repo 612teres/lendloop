@@ -1,15 +1,13 @@
 import { httpRouter } from "convex/server";
-import { httpAction } from "./_generated/server";
+import { httpAction, type ActionCtx } from "./_generated/server";
 import { internal, api } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 import { verifyHmacSignature } from "./crypto";
 
 const http = httpRouter();
 
-/**
- * Helper to authenticate HTTP requests from n8n using HMAC-SHA256, timestamp, and nonce.
- */
 async function authenticateRequest(
-  ctx: any,
+  ctx: ActionCtx,
   request: Request,
   bodyString: string
 ): Promise<{ ok: boolean; error?: string }> {
@@ -36,10 +34,6 @@ async function authenticateRequest(
   return { ok: verification.valid, error: verification.error };
 }
 
-/**
- * GET /api/overdue-loans
- * Polled by n8n daily cron workflow to fetch overdue loans with minimal fields.
- */
 http.route({
   path: "/api/overdue-loans",
   method: "GET",
@@ -65,11 +59,6 @@ http.route({
   }),
 });
 
-/**
- * POST /api/loan-reminders
- * Called by n8n overdue reminder workflow to record reminder status back into Convex.
- * Idempotency is enforced through stable composite deduplication keys.
- */
 http.route({
   path: "/api/loan-reminders",
   method: "POST",
@@ -85,7 +74,7 @@ http.route({
       });
     }
 
-    let parsed: any;
+    let parsed: { loanId: string; status?: string; reminderDate?: string; details?: string };
     try {
       parsed = JSON.parse(rawBody);
     } catch {
@@ -108,7 +97,7 @@ http.route({
     const deduplicationKey = `overdue:${loanId}:${dateKey}`;
 
     const result = await ctx.runMutation(api.automations.recordAutomationLog, {
-      loanId,
+      loanId: loanId as Id<"loans">,
       workflowType: "overdue_reminder",
       status: status === "failed" ? "failed" : "success",
       deduplicationKey,
