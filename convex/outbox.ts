@@ -1,16 +1,21 @@
-import { action, internalAction } from "./_generated/server";
-import { internal } from "./_generated/api";
+import type { RegisteredAction } from "convex/server";
+import { internalAction } from "./_generated/server";
+import { api, internal } from "./_generated/api";
 import { computeHmacSha256 } from "./crypto";
-import { v } from "convex/values";
+import type { Doc } from "./_generated/dataModel";
 
 /**
  * Resilient Outbox Dispatcher Action:
  * Fetches pending automation events, signs the payload with HMAC + timestamp + nonce,
  * and dispatches to n8n webhook.
  */
-export const dispatchPendingOutboxEvents = internalAction({
+export const dispatchPendingOutboxEvents: RegisteredAction<
+  "internal",
+  {},
+  Promise<{ dispatched: number; total?: number; reason?: string }>
+> = internalAction({
   args: {},
-  handler: async (ctx) => {
+  handler: async (ctx): Promise<{ dispatched: number; total?: number; reason?: string }> => {
     const webhookUrl = process.env.N8N_WEBHOOK_URL;
     const webhookSecret = process.env.WEBHOOK_SECRET || "lendloop-shared-hmac-secret-key-prod";
 
@@ -19,7 +24,7 @@ export const dispatchPendingOutboxEvents = internalAction({
       return { dispatched: 0, reason: "missing_webhook_url" };
     }
 
-    const pendingEvents = await ctx.runQuery(
+    const pendingEvents: Doc<"automationEvents">[] = await ctx.runQuery(
       internal.automations.getPendingOutboxEvents,
       { limit: 10 }
     );
@@ -65,7 +70,7 @@ export const dispatchPendingOutboxEvents = internalAction({
         });
 
         // Record automation log
-        await ctx.runMutation(internal.automations.recordAutomationLog, {
+        await ctx.runMutation((api.automations as any).recordAutomationLog, {
           loanId: event.loanId,
           workflowType: "request_notification",
           status: "success",
