@@ -64,21 +64,20 @@ LendLoop solves this via the **Transactional Outbox Pattern**:
 2. **Resilient Dispatcher**: A Convex action (`convex/outbox.ts`) polls pending events, computes an HMAC-SHA256 signature with nonce and timestamp, dispatches the HTTP payload to n8n, and tracks retry counts.
 3. **Idempotent Write-Back**: When n8n executes reminders or status logs, it writes back to Convex using stable composite deduplication keys (`overdue:${loanId}:${date}`), ensuring network retries never generate duplicate notifications or duplicate database logs.
 
-### Daily Overdue Reminders (n8n Cloud)
+### Daily Overdue Reminders (local Docker)
 
-The current [LendLoop – Daily Overdue Reminders workflow](https://lendloop-lime.app.n8n.cloud/workflow/ySAg2G8OQpZG1q4o) is configured to run daily at **09:00 Africa/Nairobi**. It is an **unpublished draft**; do not treat it as an active scheduled workflow until it has been tested and published in n8n.
+`workflows/overdue-reminders.json` is the local-importable version of the [LendLoop – Daily Overdue Reminders workflow](https://lendloop-lime.app.n8n.cloud/workflow/ySAg2G8OQpZG1q4o). It runs daily at **09:00 Africa/Nairobi** after it is configured and activated. The imported workflow is intentionally inactive so it cannot send reminders before setup is complete.
 
-The workflow:
+The workflow signs requests to Convex `GET /api/overdue-loans`, splits the results into individual loans, and skips reminders already present in the local n8n Data Table. With SMTP configured, it sends a personalized email, records delivery, and signs a write-back to Convex `POST /api/loan-reminders`. Delivery and write-back failures are logged separately. Without an SMTP sender address, it takes a mock path and does not write a successful reminder back to Convex.
 
-1. Creates a timestamped, nonce-protected HMAC signature and calls Convex `GET /api/overdue-loans`.
-2. Splits the returned `overdueLoans` array so each loan is processed independently.
-3. Checks whether a reminder has already been logged, then prepares a personalized reminder for an eligible loan.
-4. Checks whether SMTP is configured. If configured, it sends the reminder email and logs successful delivery. If not, it uses the mock-reminder path instead. Delivery failures are logged separately.
-5. After successful delivery, prepares and signs an idempotent write-back to Convex `POST /api/loan-reminders`. Successful write-back marks the reminder recorded; write-back failures are logged on their own path.
+The export has no Cloud-specific Data Table IDs or SMTP credential IDs. After importing it into local n8n:
 
-The read and write-back endpoints both require the shared HMAC secret configured for the Convex deployment and n8n. The write-back uses a per-loan, per-date deduplication key, so retrying the same write-back does not create a second reminder log.
+1. Create a Data Table named `lendloop_reminder_log` with string columns `dedup_key`, `loan_id`, `status`, and `updated_at`. Select this table in all five Data Table nodes.
+2. Configure an SMTP credential and select it in **Send Reminder Email**. Set `SMTP_FROM_EMAIL` in `.env` to the sender address. Leave it empty to use the mock path.
+3. Ensure `NEXT_PUBLIC_CONVEX_URL` points to the Convex deployment containing the loans to test, and `WEBHOOK_SECRET` matches the Convex deployment's `WEBHOOK_SECRET`. The workflow reads these and `SMTP_FROM_EMAIL` from the n8n container environment.
+4. Import `workflows/overdue-reminders.json` in n8n, test with a known overdue loan, then activate the workflow when ready.
 
-> **Repository export status:** `workflows/overdue-reminders.json` is an earlier export and does not yet include all of the SMTP, delivery-log, and write-back branches in the current n8n Cloud draft. Importing that file will not recreate the workflow described above.
+The Docker Compose service passes `NEXT_PUBLIC_CONVEX_URL` to n8n as `CONVEX_URL`, shares `WEBHOOK_SECRET`, passes `SMTP_FROM_EMAIL`, and runs n8n in the `Africa/Nairobi` timezone. The workflow uses environment expressions, so keep `N8N_BLOCK_ENV_ACCESS_IN_NODE=false` and restrict this local n8n instance to trusted users. The HTTP reminder endpoint derives its idempotency key from `loanId` and `reminderDate`; the workflow sends that date in Nairobi time.
 
 ---
 
@@ -146,7 +145,7 @@ lendloop/
 │   └── http.ts             # Convex HTTP Router (/api/overdue-loans, /api/loan-reminders)
 ├── workflows/
 │   ├── request-notification.json # n8n workflow for loan request status notifications
-│   ├── overdue-reminders.json    # Earlier n8n export; see current Cloud workflow section
+│   ├── overdue-reminders.json    # Local Docker import for daily overdue reminders
 │   └── error-handler.json        # n8n error handling and alerting workflow
 ├── tests/
 │   ├── auth-rbac.test.ts         # Unit & negative tests for RBAC and loan invariants
@@ -190,7 +189,11 @@ ADMIN_EMAILS=admin@lendloop.org
 
 WEBHOOK_SECRET=your-shared-hmac-secret-string
 N8N_WEBHOOK_URL=http://localhost:5678/webhook/lendloop-request
+SMTP_FROM_EMAIL=
 ```
+`SMTP_FROM_EMAIL` is optional. Leave it empty to use the overdue workflow's
+mock-reminder branch; set it to the authorized sender address when configuring
+an SMTP credential in n8n.
 `NEXT_PUBLIC_SITE_URL` is used for absolute links in `sitemap.xml`. If omitted,
 the sitemap uses Vercel's deployment URL when available and `http://localhost:3000`
 for local development.
@@ -216,14 +219,12 @@ Launch the self-hosted n8n instance:
 ```bash
 docker compose up -d
 ```
-Open **[http://localhost:5678](http://localhost:5678)** in your browser:
-- Log in with the credentials specified in `docker-compose.yml` (`admin` / `lendloopsecret123`).
+Open **[http://localhost:5678](http://localhost:5678)** in your browser and complete n8n's initial owner account setup:
 - In n8n, click **Import from File** and import the workflow JSON files from the `workflows/` directory:
   1. `workflows/request-notification.json`
   2. `workflows/overdue-reminders.json`
   3. `workflows/error-handler.json`
-- The checked-in overdue-reminders export is older than the current [n8n Cloud draft](https://lendloop-lime.app.n8n.cloud/workflow/ySAg2G8OQpZG1q4o); importing it will not include the SMTP and logging branches described above.
-- Configure the required credentials and environment variables before testing. Keep the Cloud workflow unpublished until its delivery and signed write-back paths have been validated.
+- For the overdue workflow, configure its local Data Table, SMTP credential, and `.env` values as described above. Keep it inactive until you have tested its delivery and signed write-back paths.
 
 ### 6. Run the Next.js Development Server
 ```bash

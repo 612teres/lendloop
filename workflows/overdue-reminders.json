@@ -1,175 +1,798 @@
 {
-  "name": "LendLoop - Overdue Reminders Workflow",
+  "name": "LendLoop – Daily Overdue Reminders",
   "nodes": [
     {
       "parameters": {
         "rule": {
           "interval": [
             {
-              "field": "cronExpression",
-              "expression": "0 9 * * *"
+              "triggerAtHour": 9
             }
           ]
         }
       },
-      "id": "1",
-      "name": "Daily Schedule (9 AM)",
+      "id": "eb2b0afc-5703-4a29-96f0-be99a722c351",
+      "name": "Daily 09:00 Nairobi",
       "type": "n8n-nodes-base.scheduleTrigger",
-      "typeVersion": 1.2,
-      "position": [160, 300]
+      "typeVersion": 1.4,
+      "position": [
+        0,
+        288
+      ]
     },
     {
       "parameters": {
-        "jsCode": "const crypto = require('crypto');\nconst secret = $env.WEBHOOK_SECRET || 'lendloop-shared-hmac-secret-key-prod';\nconst convexUrl = $env.CONVEX_URL || 'http://localhost:3000';\n\nconst timestamp = Date.now().toString();\nconst nonce = crypto.randomUUID();\nconst payload = ''; // empty for GET\n\nconst message = `${timestamp}:${nonce}:${payload}`;\nconst signature = crypto.createHmac('sha256', secret).update(message).digest('hex');\n\nreturn [{\n  json: {\n    url: `${convexUrl}/api/overdue-loans`,\n    headers: {\n      'X-LendLoop-Signature': `sha256=${signature}`,\n      'X-LendLoop-Timestamp': timestamp,\n      'X-LendLoop-Nonce': nonce,\n      'Accept': 'application/json'\n    }\n  }\n}];"
-      },
-      "id": "2",
-      "name": "Prepare Signed Overdue Fetch",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [380, 300]
-    },
-    {
-      "parameters": {
-        "method": "GET",
-        "url": "={{ $json.url }}",
-        "headerParameters": {
-          "parameters": [
+        "assignments": {
+          "assignments": [
             {
-              "name": "X-LendLoop-Signature",
-              "value": "={{ $json.headers['X-LendLoop-Signature'] }}"
+              "id": "f1",
+              "name": "ts",
+              "value": "={{ String($now.toMillis()) }}",
+              "type": "string"
             },
             {
-              "name": "X-LendLoop-Timestamp",
-              "value": "={{ $json.headers['X-LendLoop-Timestamp'] }}"
-            },
-            {
-              "name": "X-LendLoop-Nonce",
-              "value": "={{ $json.headers['X-LendLoop-Nonce'] }}"
+              "id": "f2",
+              "name": "nonce",
+              "value": "={{ Array.from({ length: 32 }, () => Math.floor(Math.random() * 16).toString(16)).join('') }}",
+              "type": "string"
             }
           ]
         },
         "options": {}
       },
-      "id": "3",
-      "name": "Fetch Overdue Loans from Convex",
+      "id": "b05eae44-e4f8-44bf-b7e0-a649ef8525ae",
+      "name": "Prepare Fetch Signature",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        224,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "action": "hmac",
+        "type": "SHA256",
+        "value": "={{ $json.ts }}:{{ $json.nonce }}:",
+        "dataPropertyName": "signature",
+        "secret": "={{ $env.WEBHOOK_SECRET }}"
+      },
+      "id": "9fb9570b-0fc1-41dc-ac5e-ab64b5dc57fb",
+      "name": "Sign Fetch Request",
+      "type": "n8n-nodes-base.crypto",
+      "typeVersion": 1,
+      "position": [
+        448,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.CONVEX_URL }}/api/overdue-loans",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-LendLoop-Timestamp",
+              "value": "={{ $json.ts }}"
+            },
+            {
+              "name": "X-LendLoop-Signature",
+              "value": "=sha256={{ $json.signature }}"
+            },
+            {
+              "name": "X-LendLoop-Nonce",
+              "value": "={{ $json.nonce }}"
+            },
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "a8b375af-0667-43c3-bd5c-909c4f4d4e65",
+      "name": "Fetch Overdue Loans",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [600, 300]
+      "typeVersion": 4.5,
+      "position": [
+        672,
+        288
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
     },
     {
       "parameters": {
         "fieldToSplitOut": "overdueLoans",
         "options": {}
       },
-      "id": "4",
-      "name": "Iterate Overdue Loans",
-      "type": "n8n-nodes-base.itemLists",
-      "typeVersion": 2.1,
-      "position": [820, 300]
+      "id": "af05e801-5d15-4736-bb13-e9687a9bcfad",
+      "name": "Split Loans",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1.1,
+      "position": [
+        896,
+        288
+      ]
     },
     {
       "parameters": {
-        "jsCode": "const crypto = require('crypto');\nconst secret = $env.WEBHOOK_SECRET || 'lendloop-shared-hmac-secret-key-prod';\nconst convexUrl = $env.CONVEX_URL || 'http://localhost:3000';\n\nconst item = $input.first().json;\nconst today = new Date().toISOString().split('T')[0];\n\n// 1. Format reminder message\nconst message = `[LendLoop Friendly Reminder] Hi ${item.borrowerName}, the tool '${item.toolName}' was due back on ${item.endDate} (${item.daysOverdue} day(s) overdue). Please return it to ${item.lenderName} as soon as possible. Thank you!`;\nconsole.log(`[Dispatched Overdue Reminder to ${item.borrowerEmail}]:`, message);\n\n// 2. Prepare payload for idempotent write-back\nconst writeBackPayload = {\n  loanId: item.loanId,\n  status: 'success',\n  reminderDate: today,\n  details: `Reminder sent: ${item.daysOverdue} day(s) overdue (attempt #${item.reminderCount + 1})`\n};\n\nconst rawBody = JSON.stringify(writeBackPayload);\nconst timestamp = Date.now().toString();\nconst nonce = crypto.randomUUID();\nconst messageToSign = `${timestamp}:${nonce}:${rawBody}`;\nconst signature = crypto.createHmac('sha256', secret).update(messageToSign).digest('hex');\n\nreturn [{\n  json: {\n    url: `${convexUrl}/api/loan-reminders`,\n    body: writeBackPayload,\n    headers: {\n      'Content-Type': 'application/json',\n      'X-LendLoop-Signature': `sha256=${signature}`,\n      'X-LendLoop-Timestamp': timestamp,\n      'X-LendLoop-Nonce': nonce\n    }\n  }\n}];"
+        "assignments": {
+          "assignments": [
+            {
+              "id": "p1",
+              "name": "dedupKey",
+              "value": "={{ $json.loanId }}_{{ $now.setZone('Africa/Nairobi').toFormat('yyyy-MM-dd') }}_overdue",
+              "type": "string"
+            },
+            {
+              "id": "p2",
+              "name": "subject",
+              "value": "=LendLoop reminder: please return {{ $json.toolName }}",
+              "type": "string"
+            },
+            {
+              "id": "p3",
+              "name": "messageText",
+              "value": "=Hi {{ $json.borrowerName }},\n\nThe tool \"{{ $json.toolName }}\" was due back on {{ $json.endDate }} and is now overdue.\n\nNext step: please return it to the lender as soon as possible and mark it returned in LendLoop.",
+              "type": "string"
+            },
+            {
+              "id": "p4",
+              "name": "fromEmail",
+              "value": "={{ $env.SMTP_FROM_EMAIL ?? \"\" }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
       },
-      "id": "5",
-      "name": "Send Reminder & Sign Write-Back",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [1040, 300]
+      "id": "ace0fd8d-d760-4d91-9e60-610f2af25e3d",
+      "name": "Prepare Reminder",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1120,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "rowNotExists",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": ""
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "dedup_key",
+              "keyValue": "={{ $json.dedupKey }}"
+            }
+          ]
+        }
+      },
+      "id": "9fc394df-8a1c-4586-afb3-b482ca36f633",
+      "name": "Reminder Not Yet Logged",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1344,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.fromEmail }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "bbabc466-4926-4f68-b2d8-fb15ccdbd889",
+      "name": "SMTP Configured?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        1568,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $json.fromEmail }}",
+        "toEmail": "={{ $json.borrowerEmail }}",
+        "subject": "={{ $json.subject }}",
+        "emailFormat": "text",
+        "text": "={{ $json.messageText }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "ab3889e1-845c-4738-9aa5-2e3bd8fe287c",
+      "name": "Send Reminder Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1792,
+        192
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": ""
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "dedup_key": "={{ $('Prepare Reminder').item.json.dedupKey }}",
+            "loan_id": "={{ $('Prepare Reminder').item.json.loanId }}",
+            "status": "delivered",
+            "updated_at": "={{ $now.toISO() }}"
+          },
+          "schema": [
+            {
+              "id": "dedup_key",
+              "displayName": "dedup_key",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "loan_id",
+              "displayName": "loan_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "updated_at",
+              "displayName": "updated_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "2d40b9ec-4027-4691-8f23-45e7f82495ae",
+      "name": "Log Delivered",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        2016,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "w1",
+              "name": "wbTs",
+              "value": "={{ String($now.toMillis()) }}",
+              "type": "string"
+            },
+            {
+              "id": "w3",
+              "name": "wbNonce",
+              "value": "={{ Array.from({ length: 32 }, () => Math.floor(Math.random() * 16).toString(16)).join('') }}",
+              "type": "string"
+            },
+            {
+              "id": "w2",
+              "name": "wbBody",
+              "value": "={{ JSON.stringify({ loanId: $('Prepare Reminder').item.json.loanId, status: 'success', reminderDate: $now.setZone('Africa/Nairobi').toFormat('yyyy-MM-dd'), details: $('Prepare Reminder').item.json.messageText }) }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "2c355c4b-fb01-4041-95a3-a6c66c599756",
+      "name": "Prepare Write-Back",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        2240,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "action": "hmac",
+        "type": "SHA256",
+        "value": "={{ $json.wbTs }}:{{ $json.wbNonce }}:{{ $json.wbBody }}",
+        "dataPropertyName": "wbSignature",
+        "secret": "={{ $env.WEBHOOK_SECRET }}"
+      },
+      "id": "fe9ce9f8-3d1c-419c-b206-9c2a91d01f94",
+      "name": "Sign Write-Back",
+      "type": "n8n-nodes-base.crypto",
+      "typeVersion": 1,
+      "position": [
+        2464,
+        96
+      ]
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $json.url }}",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "url": "={{ $env.CONVEX_URL }}/api/loan-reminders",
+        "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
-              "name": "Content-Type",
-              "value": "application/json"
+              "name": "X-LendLoop-Timestamp",
+              "value": "={{ $json.wbTs }}"
             },
             {
               "name": "X-LendLoop-Signature",
-              "value": "={{ $json.headers['X-LendLoop-Signature'] }}"
-            },
-            {
-              "name": "X-LendLoop-Timestamp",
-              "value": "={{ $json.headers['X-LendLoop-Timestamp'] }}"
+              "value": "=sha256={{ $json.wbSignature }}"
             },
             {
               "name": "X-LendLoop-Nonce",
-              "value": "={{ $json.headers['X-LendLoop-Nonce'] }}"
+              "value": "={{ $json.wbNonce }}"
             }
           ]
         },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ $json.wbBody }}",
         "options": {
-          "retry": {
-            "retry": {
-              "maxRetries": 3,
-              "waitBetweenRetries": 2000
-            }
-          }
+          "timeout": 30000
         }
       },
-      "id": "6",
-      "name": "Idempotent Write-Back to Convex",
+      "id": "2219d25e-4fa2-48b2-88a0-48b00a265dd8",
+      "name": "Write Back Reminder To Convex",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [1260, 300]
+      "typeVersion": 4.5,
+      "position": [
+        2688,
+        96
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 4000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": ""
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "dedup_key",
+              "keyValue": "={{ $('Prepare Reminder').item.json.dedupKey }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "status": "recorded",
+            "updated_at": "={{ $now.toISO() }}"
+          },
+          "schema": [
+            {
+              "id": "dedup_key",
+              "displayName": "dedup_key",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "loan_id",
+              "displayName": "loan_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "updated_at",
+              "displayName": "updated_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "2e37f861-a84f-49e2-9a5a-7367967ea50b",
+      "name": "Mark Reminder Recorded",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        2912,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": ""
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "dedup_key": "={{ $('Prepare Reminder').item.json.dedupKey }}_delivery_failed",
+            "loan_id": "={{ $('Prepare Reminder').item.json.loanId }}",
+            "status": "delivery_failed",
+            "updated_at": "={{ $now.toISO() }}"
+          },
+          "schema": [
+            {
+              "id": "dedup_key",
+              "displayName": "dedup_key",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "loan_id",
+              "displayName": "loan_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "updated_at",
+              "displayName": "updated_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "db6ce4f9-763f-438a-8b1a-66a2909965c1",
+      "name": "Log Delivery Failed",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        2016,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": ""
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "dedup_key": "={{ $('Prepare Reminder').item.json.dedupKey }}_writeback_failed",
+            "loan_id": "={{ $('Prepare Reminder').item.json.loanId }}",
+            "status": "writeback_failed",
+            "updated_at": "={{ $now.toISO() }}"
+          },
+          "schema": [
+            {
+              "id": "dedup_key",
+              "displayName": "dedup_key",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "loan_id",
+              "displayName": "loan_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "updated_at",
+              "displayName": "updated_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "4830a19f-8d42-4c0c-971f-18e3d8c8df53",
+      "name": "Log Write-Back Failed",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        2912,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "m1",
+              "name": "mockReminder",
+              "value": "={{ { mode: \"mock\", to: $json.borrowerEmail, subject: $json.subject, text: $json.messageText, convexWriteBack: \"skipped\" } }}",
+              "type": "object"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "6d0bfd99-dadc-4a32-9d06-eea08b048317",
+      "name": "Mock Reminder (SMTP Not Configured)",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1792,
+        384
+      ]
     }
   ],
+  "pinData": {},
   "connections": {
-    "Daily Schedule (9 AM)": {
+    "Daily 09:00 Nairobi": {
       "main": [
         [
           {
-            "node": "Prepare Signed Overdue Fetch",
+            "node": "Prepare Fetch Signature",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Prepare Signed Overdue Fetch": {
+    "Prepare Fetch Signature": {
       "main": [
         [
           {
-            "node": "Fetch Overdue Loans from Convex",
+            "node": "Sign Fetch Request",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Fetch Overdue Loans from Convex": {
+    "Sign Fetch Request": {
       "main": [
         [
           {
-            "node": "Iterate Overdue Loans",
+            "node": "Fetch Overdue Loans",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Iterate Overdue Loans": {
+    "Fetch Overdue Loans": {
       "main": [
         [
           {
-            "node": "Send Reminder & Sign Write-Back",
+            "node": "Split Loans",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Send Reminder & Sign Write-Back": {
+    "Split Loans": {
       "main": [
         [
           {
-            "node": "Idempotent Write-Back to Convex",
+            "node": "Prepare Reminder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Reminder": {
+      "main": [
+        [
+          {
+            "node": "Reminder Not Yet Logged",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reminder Not Yet Logged": {
+      "main": [
+        [
+          {
+            "node": "SMTP Configured?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SMTP Configured?": {
+      "main": [
+        [
+          {
+            "node": "Send Reminder Email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mock Reminder (SMTP Not Configured)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Reminder Email": {
+      "main": [
+        [
+          {
+            "node": "Log Delivered",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Delivery Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Delivered": {
+      "main": [
+        [
+          {
+            "node": "Prepare Write-Back",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Write-Back": {
+      "main": [
+        [
+          {
+            "node": "Sign Write-Back",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sign Write-Back": {
+      "main": [
+        [
+          {
+            "node": "Write Back Reminder To Convex",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write Back Reminder To Convex": {
+      "main": [
+        [
+          {
+            "node": "Mark Reminder Recorded",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Write-Back Failed",
             "type": "main",
             "index": 0
           }
@@ -177,8 +800,12 @@
       ]
     }
   },
+  "active": false,
   "settings": {
     "executionOrder": "v1",
-    "errorWorkflow": "LendLoop - Error Handler"
-  }
+    "binaryMode": "separate",
+    "timezone": "Africa/Nairobi"
+  },
+  "nodeGroups": [],
+  "tags": []
 }
