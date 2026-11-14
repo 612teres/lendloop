@@ -167,13 +167,28 @@ export default function DashboardPage() {
                         {displayId}
                       </td>
 
-                      {/* Name */}
+                      {/* Name & Photo */}
                       <td className="py-4 px-4">
-                        <div className="font-semibold text-zinc-900 dark:text-zinc-100 max-w-xs truncate">
-                          {tool.name}
-                        </div>
-                        <div className="text-[11px] text-zinc-400 max-w-xs truncate mt-0.5">
-                          {tool.description}
+                        <div className="flex items-center gap-3">
+                          {tool.images && tool.images.length > 0 ? (
+                            <img
+                              src={tool.images[0]}
+                              alt={tool.name}
+                              className="h-10 w-10 shrink-0 rounded-xl object-cover border border-zinc-200 dark:border-zinc-700 shadow-2xs"
+                            />
+                          ) : (
+                            <div className="h-10 w-10 shrink-0 rounded-xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-400">
+                              <Wrench className="h-4 w-4" />
+                            </div>
+                          )}
+                          <div className="min-w-0">
+                            <div className="font-semibold text-zinc-900 dark:text-zinc-100 max-w-xs truncate">
+                              {tool.name}
+                            </div>
+                            <div className="text-[11px] text-zinc-400 max-w-xs truncate mt-0.5">
+                              {tool.description}
+                            </div>
+                          </div>
                         </div>
                       </td>
 

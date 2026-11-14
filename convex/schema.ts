@@ -18,6 +18,7 @@ export default defineSchema({
     category: v.string(), // "Power Tools" | "Garden" | "Kitchen" | "Camping" | "Hand Tools" | "Other"
     condition: v.string(), // "Brand New" | "Like New" | "Good" | "Fair"
     description: v.string(),
+    images: v.optional(v.array(v.id("_storage"))),
     ownerId: v.id("users"),
     isArchived: v.boolean(),
     createdAt: v.number(),

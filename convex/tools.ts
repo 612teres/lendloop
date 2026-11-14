@@ -104,12 +104,23 @@ export const getAllTools = query({
           )
           .first();
 
+        // Resolve storage image URLs
+        const imageUrls = tool.images
+          ? (
+              await Promise.all(
+                tool.images.map(async (storageId) => await ctx.storage.getUrl(storageId))
+              )
+            ).filter((url): url is string => Boolean(url))
+          : [];
+
         return {
           _id: tool._id,
           name: tool.name,
           category: tool.category,
           condition: tool.condition,
           description: tool.description,
+          images: imageUrls,
+          imageStorageIds: tool.images ?? [],
           ownerId: tool.ownerId,
           ownerName: owner?.name ?? "Neighbor",
           isTrustedLender: !!owner?.isTrustedLender,
@@ -156,8 +167,18 @@ export const getMyTools = query({
           )
           .first();
 
+        const imageUrls = tool.images
+          ? (
+              await Promise.all(
+                tool.images.map(async (storageId) => await ctx.storage.getUrl(storageId))
+              )
+            ).filter((url): url is string => Boolean(url))
+          : [];
+
         return {
           ...tool,
+          images: imageUrls,
+          imageStorageIds: tool.images ?? [],
           isAvailable: !activeLoan,
           activeLoanEndDate: activeLoan?.endDate,
         };
@@ -167,7 +188,18 @@ export const getMyTools = query({
 });
 
 /**
- * Authenticated Mutation: List a new tool.
+ * Authenticated Mutation: Generate upload URL for tool images.
+ */
+export const generateUploadUrl = mutation({
+  args: {},
+  handler: async (ctx) => {
+    await getAuthenticatedUser(ctx);
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
+/**
+ * Authenticated Mutation: List a new tool with optional up to 3 images.
  */
 export const createTool = mutation({
   args: {
@@ -175,18 +207,23 @@ export const createTool = mutation({
     category: v.string(),
     condition: v.string(),
     description: v.string(),
+    images: v.optional(v.array(v.id("_storage"))),
   },
   handler: async (ctx, args) => {
     const caller = await getAuthenticatedUser(ctx);
 
     if (!args.name.trim()) throw new Error("Tool name is required");
     if (!args.description.trim()) throw new Error("Description is required");
+    if (args.images && args.images.length > 3) {
+      throw new Error("You can upload a maximum of 3 images per tool");
+    }
 
     const toolId = await ctx.db.insert("tools", {
       name: args.name.trim(),
       category: args.category,
       condition: args.condition,
       description: args.description.trim(),
+      images: args.images && args.images.length > 0 ? args.images.slice(0, 3) : undefined,
       ownerId: caller._id,
       isArchived: false,
       createdAt: Date.now(),
@@ -206,6 +243,7 @@ export const updateTool = mutation({
     category: v.string(),
     condition: v.string(),
     description: v.string(),
+    images: v.optional(v.array(v.id("_storage"))),
   },
   handler: async (ctx, args) => {
     const caller = await getAuthenticatedUser(ctx);
@@ -215,12 +253,16 @@ export const updateTool = mutation({
     if (tool.ownerId !== caller._id && caller.role !== "admin") {
       throw new Error("Forbidden: You can only edit your own listings");
     }
+    if (args.images && args.images.length > 3) {
+      throw new Error("You can upload a maximum of 3 images per tool");
+    }
 
     await ctx.db.patch(args.toolId, {
       name: args.name.trim(),
       category: args.category,
       condition: args.condition,
       description: args.description.trim(),
+      images: args.images ? args.images.slice(0, 3) : tool.images,
     });
 
     return { success: true };
