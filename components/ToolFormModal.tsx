@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { TOOL_CATEGORIES, TOOL_CONDITIONS } from "@/lib/constants";
-import { X, AlertCircle } from "lucide-react";
+import { X, AlertCircle, UploadCloud, Trash2, Image as ImageIcon } from "lucide-react";
 
 interface ToolFormModalProps {
   isOpen: boolean;
@@ -16,6 +16,8 @@ interface ToolFormModalProps {
     category: string;
     condition: string;
     description: string;
+    images?: string[];
+    imageStorageIds?: Id<"_storage">[];
   } | null;
   onSuccess?: () => void;
 }
@@ -35,10 +37,63 @@ export function ToolFormModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // Existing storage IDs (from toolToEdit) and their preview URLs
+  const [existingStorageIds, setExistingStorageIds] = useState<Id<"_storage">[]>(
+    toolToEdit?.imageStorageIds || []
+  );
+  const [existingImageUrls, setExistingImageUrls] = useState<string[]>(
+    toolToEdit?.images || []
+  );
+
+  // Newly selected files to upload
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [previewUrls, setPreviewUrls] = useState<string[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const createTool = useMutation(api.tools.createTool);
   const updateTool = useMutation(api.tools.updateTool);
+  const generateUploadUrl = useMutation(api.tools.generateUploadUrl);
 
   if (!isOpen) return null;
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setErrorMessage(null);
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+
+    const totalCount = existingStorageIds.length + selectedFiles.length + files.length;
+    if (totalCount > 3) {
+      setErrorMessage("You can upload a maximum of 3 images per tool listing.");
+      return;
+    }
+
+    const maxSizeBytes = 2 * 1024 * 1024; // 2MB
+    for (const file of files) {
+      if (file.size > maxSizeBytes) {
+        setErrorMessage(`"${file.name}" exceeds the 2MB limit (${(file.size / (1024 * 1024)).toFixed(2)} MB). Please select an image under 2MB.`);
+        return;
+      }
+      if (!file.type.startsWith("image/")) {
+        setErrorMessage(`"${file.name}" is not a valid image file.`);
+        return;
+      }
+    }
+
+    const newPreviews = files.map((f) => URL.createObjectURL(f));
+    setSelectedFiles((prev) => [...prev, ...files]);
+    setPreviewUrls((prev) => [...prev, ...newPreviews]);
+  };
+
+  const removeSelectedFile = (index: number) => {
+    URL.revokeObjectURL(previewUrls[index]);
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+    setPreviewUrls((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const removeExistingImage = (index: number) => {
+    setExistingStorageIds((prev) => prev.filter((_, i) => i !== index));
+    setExistingImageUrls((prev) => prev.filter((_, i) => i !== index));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,6 +110,27 @@ export function ToolFormModal({
 
     try {
       setIsSubmitting(true);
+
+      // Upload newly selected files directly to Convex file storage
+      const uploadedStorageIds: Id<"_storage">[] = [];
+      for (const file of selectedFiles) {
+        const uploadUrl = await generateUploadUrl();
+        const response = await fetch(uploadUrl, {
+          method: "POST",
+          headers: { "Content-Type": file.type },
+          body: file,
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to upload ${file.name}`);
+        }
+
+        const { storageId } = await response.json();
+        uploadedStorageIds.push(storageId);
+      }
+
+      const finalStorageIds = [...existingStorageIds, ...uploadedStorageIds].slice(0, 3);
+
       if (isEditing && toolToEdit) {
         await updateTool({
           toolId: toolToEdit._id,
@@ -62,6 +138,7 @@ export function ToolFormModal({
           category,
           condition,
           description: description.trim(),
+          images: finalStorageIds,
         });
       } else {
         await createTool({
@@ -69,6 +146,7 @@ export function ToolFormModal({
           category,
           condition,
           description: description.trim(),
+          images: finalStorageIds.length > 0 ? finalStorageIds : undefined,
         });
       }
 
@@ -165,6 +243,76 @@ export function ToolFormModal({
               placeholder="Include accessories, condition details, safety notes, or pickup preferences."
               required
               className="w-full rounded-xl border border-zinc-200 bg-white px-3.5 py-2.5 text-xs text-zinc-900 shadow-2xs focus:border-[#F5B842] focus:outline-none focus:ring-1 focus:ring-[#F5B842] dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+            />
+          </div>
+
+          {/* Tool Images (Max 3, Max 2MB each) */}
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+                Tool Images <span className="text-zinc-400 font-normal">(Up to 3 images, max 2MB each)</span>
+              </label>
+              <span className="text-[11px] font-medium text-zinc-500">
+                {existingStorageIds.length + selectedFiles.length} / 3
+              </span>
+            </div>
+
+            {/* Thumbnail Previews */}
+            <div className="grid grid-cols-3 gap-2 mb-2">
+              {/* Existing Images */}
+              {existingImageUrls.map((url, idx) => (
+                <div key={`existing-${idx}`} className="relative group aspect-square rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden bg-zinc-100 dark:bg-zinc-800">
+                  <img src={url} alt={`Tool photo ${idx + 1}`} className="w-full h-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => removeExistingImage(idx)}
+                    className="absolute top-1 right-1 p-1 rounded-md bg-black/60 text-white hover:bg-red-600 transition-colors"
+                    title="Remove Image"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
+
+              {/* Newly Selected Images */}
+              {previewUrls.map((url, idx) => (
+                <div key={`new-${idx}`} className="relative group aspect-square rounded-xl border border-amber-300 dark:border-amber-700 overflow-hidden bg-zinc-100 dark:bg-zinc-800">
+                  <img src={url} alt={`New upload ${idx + 1}`} className="w-full h-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => removeSelectedFile(idx)}
+                    className="absolute top-1 right-1 p-1 rounded-md bg-black/60 text-white hover:bg-red-600 transition-colors"
+                    title="Remove Image"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                  <span className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#F5B842] text-zinc-950">
+                    New
+                  </span>
+                </div>
+              ))}
+
+              {/* Add Image Slot */}
+              {existingStorageIds.length + selectedFiles.length < 3 && (
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex flex-col items-center justify-center aspect-square rounded-xl border-2 border-dashed border-zinc-200 dark:border-zinc-700 hover:border-[#F5B842] dark:hover:border-[#F5B842] text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition-colors cursor-pointer bg-zinc-50/50 dark:bg-zinc-800/40"
+                >
+                  <UploadCloud className="h-5 w-5 mb-1" />
+                  <span className="text-[10px] font-semibold">Upload Photo</span>
+                  <span className="text-[9px] text-zinc-400">Max 2MB</span>
+                </button>
+              )}
+            </div>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={handleFileChange}
+              className="hidden"
             />
           </div>
 
