@@ -3,36 +3,21 @@
  * Generated `api` utility.
  *
  * THIS CODE IS AUTOMATICALLY GENERATED.
+ *
+ * To regenerate, run `npx convex dev`.
+ * @module
  */
 
-export const api = new Proxy(
-  {},
-  {
-    get(target, prop) {
-      return new Proxy(
-        {},
-        {
-          get(target2, prop2) {
-            return `${String(prop)}:${String(prop2)}`;
-          },
-        }
-      );
-    },
-  }
-);
+import { anyApi, componentsGeneric } from "convex/server";
 
-export const internal = new Proxy(
-  {},
-  {
-    get(target, prop) {
-      return new Proxy(
-        {},
-        {
-          get(target2, prop2) {
-            return `${String(prop)}:${String(prop2)}`;
-          },
-        }
-      );
-    },
-  }
-);
+/**
+ * A utility for referencing Convex functions in your app's API.
+ *
+ * Usage:
+ * ```js
+ * const myFunctionReference = api.myModule.myFunction;
+ * ```
+ */
+export const api = anyApi;
+export const internal = anyApi;
+export const components = componentsGeneric();

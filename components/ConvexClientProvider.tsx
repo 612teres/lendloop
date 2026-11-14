@@ -5,6 +5,7 @@ import { ClerkProvider, useAuth } from "@clerk/nextjs";
 import { ConvexProviderWithClerk } from "convex/react-clerk";
 import { ConvexReactClient, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { ConvexErrorBoundary } from "./ConvexErrorBoundary";
 
 const convexUrl =
   process.env.NEXT_PUBLIC_CONVEX_URL || "https://placeholder-domain.convex.cloud";
@@ -36,8 +37,10 @@ export function ConvexClientProvider({ children }: { children: ReactNode }) {
         }
       >
         <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
-          <UserSynchronizer />
-          {children}
+          <ConvexErrorBoundary>
+            <UserSynchronizer />
+            {children}
+          </ConvexErrorBoundary>
         </ConvexProviderWithClerk>
       </ClerkProvider>
     </Suspense>
