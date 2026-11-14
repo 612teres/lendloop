@@ -20,6 +20,7 @@ import {
   Clock,
   CheckCircle,
   AlertTriangle,
+  HelpCircle,
 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 
@@ -66,6 +67,7 @@ export function Navbar() {
     { href: "/dashboard", label: "Tools Board", icon: LayoutGrid },
     { href: "/listings", label: "My Listings", icon: Package },
     { href: "/requests", label: "Requests", icon: Inbox },
+    { href: "/support", label: "Support & Issues", icon: HelpCircle },
     ...(isAdmin ? [{ href: "/admin", label: "Admin Panel", icon: Shield }] : []),
   ];
 
@@ -83,16 +85,11 @@ export function Navbar() {
             </button>
           )}
 
-          <Link href="/" className="flex items-center gap-2.5 group">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 shadow-xs transition-transform group-hover:scale-105">
-              <Wrench className="h-4 w-4" />
-            </div>
-            <div className="flex items-baseline gap-1">
-              <span className="text-xl font-extrabold tracking-tight text-zinc-950 dark:text-zinc-50">
-                Lend<span className="text-[#F5B842]">Loop</span>
-              </span>
-              <span className="h-1.5 w-1.5 rounded-full bg-[#F5B842]" />
-            </div>
+          <Link href="/" className="flex items-center gap-1.5 group">
+            <span className="text-xl font-extrabold tracking-tight text-zinc-950 dark:text-zinc-50">
+              Lend<span className="text-[#F5B842]">Loop</span>
+            </span>
+            <span className="h-1.5 w-1.5 rounded-full bg-[#F5B842]" />
           </Link>
         </div>
 

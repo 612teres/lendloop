@@ -102,4 +102,29 @@ export default defineSchema({
     nonce: v.string(),
     timestamp: v.number(),
   }).index("by_nonce", ["nonce"]),
+
+  // Community Support & Issue Reports
+  supportTickets: defineTable({
+    userId: v.id("users"),
+    userEmail: v.string(),
+    userName: v.string(),
+    subject: v.string(),
+    category: v.union(
+      v.literal("tool_issue"),
+      v.literal("user_dispute"),
+      v.literal("platform_bug"),
+      v.literal("other")
+    ),
+    description: v.string(),
+    status: v.union(
+      v.literal("open"),
+      v.literal("in_review"),
+      v.literal("resolved")
+    ),
+    adminNote: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_status", ["status"]),
 });

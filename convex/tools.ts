@@ -37,12 +37,23 @@ export const getPublicAvailableTools = query({
         .first();
 
       if (!activeApprovedLoan) {
-        // Return strictly data-minimized fields
+        // Resolve storage image URLs for public view without exposing owner details
+        const imageUrls = tool.images
+          ? (
+              await Promise.all(
+                tool.images.map(async (storageId) => await ctx.storage.getUrl(storageId))
+              )
+            ).filter((url): url is string => Boolean(url))
+          : [];
+
+        // Return strictly data-minimized fields (zero owner details, contact info, or emails)
         availableTools.push({
           _id: tool._id,
           name: tool.name,
           category: tool.category,
           condition: tool.condition,
+          description: tool.description,
+          images: imageUrls,
         });
       }
     }

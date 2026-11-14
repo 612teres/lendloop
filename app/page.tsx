@@ -5,6 +5,7 @@ import { SignInButton, useUser } from "@clerk/nextjs";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { TOOL_CATEGORIES } from "@/lib/constants";
+import { ToolDetailsDrawer } from "@/components/ToolDetailsDrawer";
 import {
   Wrench,
   Search,
@@ -13,6 +14,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Lock,
+  Eye,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -21,6 +23,7 @@ export default function HomePage() {
   const publicTools = useQuery(api.tools.getPublicAvailableTools);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
+  const [viewingTool, setViewingTool] = useState<any>(null);
 
   const filteredTools = (publicTools ?? []).filter((tool: any) => {
     const matchesSearch =
@@ -32,41 +35,66 @@ export default function HomePage() {
   });
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
-      {/* Title & Tagline matching requirements */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-3xl font-extrabold tracking-tight text-zinc-950 dark:text-zinc-50">
-              Lend<span className="text-[#F5B842]">Loop</span>
-            </h1>
-            <span className="h-2 w-2 rounded-full bg-[#F5B842]" />
+    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-8">
+      {/* Modern Hero Section */}
+      <div className="relative overflow-hidden rounded-3xl bg-radial from-amber-500/10 via-zinc-900 to-zinc-950 p-8 sm:p-12 lg:p-16 shadow-xl text-center sm:text-left">
+        <div className="relative z-10 max-w-3xl">
+
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white leading-[1.1]">
+            Borrow what you need. <br />
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#F5B842] via-amber-200 to-white">
+              Lend what you don&apos;t.
+            </span>
+          </h1>
+
+          <p className="mt-4 text-sm sm:text-base text-zinc-300 leading-relaxed max-w-2xl">
+            Save money, cut clutter, and empower your community. Access high-quality power tools, garden gear, camping equipment, and kitchen appliances directly from verified neighbors.
+          </p>
+
+          <div className="mt-8 flex flex-col sm:flex-row items-center gap-4">
+            {isSignedIn ? (
+              <Link
+                href="/dashboard"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-[#F5B842] px-7 py-3.5 text-sm font-black text-zinc-950 shadow-md hover:bg-[#e6ab39] transition-all hover:scale-[1.02]"
+              >
+                Explore Community Tools
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            ) : (
+              <SignInButton mode="modal">
+                <button className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-[#F5B842] px-7 py-3.5 text-sm font-black text-zinc-950 shadow-md hover:bg-[#e6ab39] transition-all hover:scale-[1.02]">
+                  Sign in to lend or borrow
+                  <ArrowRight className="h-4 w-4" />
+                </button>
+              </SignInButton>
+            )}
+
+            <div className="flex items-center gap-6 text-xs text-zinc-400">
+              <div className="flex items-center gap-2">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#F5B842]" />
+                Free Community Sharing
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#F5B842]" />
+                Automated Reminders
+              </div>
+            </div>
           </div>
-          <p className="mt-1 text-sm font-semibold text-zinc-700 dark:text-zinc-300">
-            Borrow what you need. Lend what you don&apos;t.
-          </p>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-            Public equipment preview. Owner details and borrowing access are reserved for authenticated neighbors.
-          </p>
         </div>
 
+        {/* Decorative background glow */}
+        <div className="absolute right-0 top-0 -translate-y-12 translate-x-12 h-96 w-96 rounded-full bg-[#F5B842]/15 blur-3xl pointer-events-none" />
+      </div>
+
+      {/* Directory Section Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2">
         <div>
-          {isSignedIn ? (
-            <Link
-              href="/dashboard"
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#F5B842] px-5 py-2.5 text-xs font-bold text-zinc-950 shadow-xs hover:bg-[#e6ab39] transition-all hover:scale-[1.01]"
-            >
-              Open Tools Board
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-          ) : (
-            <SignInButton mode="modal">
-              <button className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#F5B842] px-5 py-2.5 text-xs font-bold text-zinc-950 shadow-xs hover:bg-[#e6ab39] transition-all hover:scale-[1.01]">
-                Sign in to lend or borrow
-                <ArrowRight className="h-4 w-4" />
-              </button>
-            </SignInButton>
-          )}
+          <h2 className="text-xl font-bold tracking-tight text-zinc-950 dark:text-zinc-50">
+            Available Equipment Preview
+          </h2>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+            Real-time public preview. Equipment details, owner credibility badges, and borrowing requests are available upon sign-in.
+          </p>
         </div>
       </div>
 
@@ -153,8 +181,23 @@ export default function HomePage() {
                       <td className="py-4 px-4 font-medium text-zinc-400">
                         {displayId}
                       </td>
-                      <td className="py-4 px-4 font-semibold text-zinc-900 dark:text-zinc-100">
-                        {tool.name}
+                      <td className="py-4 px-4">
+                        <div className="flex items-center gap-3">
+                          {tool.images && tool.images.length > 0 ? (
+                            <img
+                              src={tool.images[0]}
+                              alt={tool.name}
+                              className="h-9 w-9 shrink-0 rounded-xl object-cover border border-zinc-200 dark:border-zinc-700 shadow-2xs"
+                            />
+                          ) : (
+                            <div className="h-9 w-9 shrink-0 rounded-xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-400">
+                              <Wrench className="h-4 w-4" />
+                            </div>
+                          )}
+                          <span className="font-semibold text-zinc-900 dark:text-zinc-100">
+                            {tool.name}
+                          </span>
+                        </div>
                       </td>
                       <td className="py-4 px-4 text-zinc-600 dark:text-zinc-400">
                         {tool.category}
@@ -165,20 +208,31 @@ export default function HomePage() {
                         </span>
                       </td>
                       <td className="py-4 px-4 text-right">
-                        {isSignedIn ? (
-                          <Link
-                            href="/dashboard"
-                            className="inline-flex items-center gap-1 text-xs font-semibold text-zinc-900 hover:text-zinc-700"
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => setViewingTool(tool)}
+                            className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-2.5 py-1 text-xs font-semibold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-colors shadow-2xs"
+                            title="View Photos & Details"
                           >
-                            Request to Borrow &rarr;
-                          </Link>
-                        ) : (
-                          <SignInButton mode="modal">
-                            <button className="inline-flex items-center gap-1 text-xs font-bold text-amber-700 hover:text-amber-800 dark:text-amber-400">
-                              Sign in to borrow &rarr;
-                            </button>
-                          </SignInButton>
-                        )}
+                            <Eye className="h-3.5 w-3.5" />
+                            Details
+                          </button>
+
+                          {isSignedIn ? (
+                            <Link
+                              href="/dashboard"
+                              className="inline-flex items-center gap-1 text-xs font-semibold text-zinc-900 hover:text-zinc-700"
+                            >
+                              Borrow &rarr;
+                            </Link>
+                          ) : (
+                            <SignInButton mode="modal">
+                              <button className="inline-flex items-center gap-1 text-xs font-bold text-amber-700 hover:text-amber-800 dark:text-amber-400">
+                                Sign in &rarr;
+                              </button>
+                            </SignInButton>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -209,6 +263,20 @@ export default function HomePage() {
           </div>
         </div>
       </div>
+
+      {/* Tool Details Sidebar Drawer for Landing Page */}
+      <ToolDetailsDrawer
+        isOpen={!!viewingTool}
+        onClose={() => setViewingTool(null)}
+        tool={
+          viewingTool
+            ? {
+                ...viewingTool,
+                isAvailable: true,
+              }
+            : null
+        }
+      />
     </div>
   );
 }
