@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery, useMutation } from "convex/react";
+import { useQuery, useMutation, useConvexAuth } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { AutomationHistoryBadge } from "@/components/AutomationHistoryBadge";
 import { useUser } from "@clerk/nextjs";
@@ -20,9 +20,10 @@ import {
 
 export default function AdminPage() {
   const { isSignedIn } = useUser();
+  const { isAuthenticated } = useConvexAuth();
   const currentUser = useQuery(
     api.users.getCurrentUser,
-    isSignedIn ? {} : "skip"
+    isAuthenticated ? {} : "skip"
   );
   const isAdmin = currentUser?.role === "admin";
 

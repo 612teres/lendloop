@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery } from "convex/react";
+import { useQuery, useConvexAuth } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { TOOL_CATEGORIES } from "@/lib/constants";
 import { ToolFormModal } from "@/components/ToolFormModal";
@@ -21,6 +21,7 @@ import {
 
 export default function DashboardPage() {
   const { isSignedIn } = useUser();
+  const { isAuthenticated } = useConvexAuth();
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
   const [selectedStatus, setSelectedStatus] = useState<string>("All");
   const [searchQuery, setSearchQuery] = useState<string>("");
@@ -29,11 +30,11 @@ export default function DashboardPage() {
 
   const currentUser = useQuery(
     api.users.getCurrentUser,
-    isSignedIn ? {} : "skip"
+    isAuthenticated ? {} : "skip"
   );
   const tools = useQuery(
     api.tools.getAllTools,
-    isSignedIn
+    isAuthenticated
       ? {
           category: selectedCategory === "All" ? undefined : selectedCategory,
           search: searchQuery ? searchQuery : undefined,

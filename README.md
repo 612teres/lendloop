@@ -168,12 +168,16 @@ CLERK_SECRET_KEY=sk_test_...
 
 NEXT_PUBLIC_CONVEX_URL=https://your-convex-deployment.convex.cloud
 CONVEX_DEPLOYMENT=dev:your-convex-deployment
+NEXT_PUBLIC_SITE_URL=https://your-lendloop-site.example
 
 ADMIN_EMAILS=admin@lendloop.org
 
 WEBHOOK_SECRET=your-shared-hmac-secret-string
 N8N_WEBHOOK_URL=http://localhost:5678/webhook/lendloop-request
 ```
+`NEXT_PUBLIC_SITE_URL` is used for absolute links in `sitemap.xml`. If omitted,
+the sitemap uses Vercel's deployment URL when available and `http://localhost:3000`
+for local development.
 
 ### 4. Start Convex Backend
 In a separate terminal:
