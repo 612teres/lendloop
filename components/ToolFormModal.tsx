@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
@@ -49,6 +49,21 @@ export function ToolFormModal({
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Synchronize state whenever toolToEdit or isOpen changes
+  useEffect(() => {
+    if (isOpen) {
+      setName(toolToEdit?.name || "");
+      setCategory(toolToEdit?.category || TOOL_CATEGORIES[0]);
+      setCondition(toolToEdit?.condition || "Good");
+      setDescription(toolToEdit?.description || "");
+      setExistingStorageIds(toolToEdit?.imageStorageIds || []);
+      setExistingImageUrls(toolToEdit?.images || []);
+      setSelectedFiles([]);
+      setPreviewUrls([]);
+      setErrorMessage(null);
+    }
+  }, [toolToEdit, isOpen]);
 
   const createTool = useMutation(api.tools.createTool);
   const updateTool = useMutation(api.tools.updateTool);
