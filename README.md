@@ -179,6 +179,16 @@ N8N_WEBHOOK_URL=http://localhost:5678/webhook/lendloop-request
 the sitemap uses Vercel's deployment URL when available and `http://localhost:3000`
 for local development.
 
+For the production Vercel deployment, add this environment variable to the
+Vercel project's **Production** environment and redeploy:
+
+```env
+NEXT_PUBLIC_CLERK_PROXY_URL=https://lendloop-lime.vercel.app/__clerk
+```
+
+The Clerk middleware explicitly enables its frontend API proxy at `/__clerk`,
+so this setting works without DNS changes to the `vercel.app` domain.
+
 ### 4. Start Convex Backend
 In a separate terminal:
 ```bash
