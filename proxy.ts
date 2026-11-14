@@ -4,6 +4,8 @@ export default clerkMiddleware();
 
 export const config = {
   matcher: [
+    // Clerk's proxied JS and API assets use this path and may have static-file extensions.
+    "/__clerk/:path*",
     // Skip Next.js internals and all static files, unless found in search params
     "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
     // Always run for API routes
