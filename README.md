@@ -64,6 +64,22 @@ LendLoop solves this via the **Transactional Outbox Pattern**:
 2. **Resilient Dispatcher**: A Convex action (`convex/outbox.ts`) polls pending events, computes an HMAC-SHA256 signature with nonce and timestamp, dispatches the HTTP payload to n8n, and tracks retry counts.
 3. **Idempotent Write-Back**: When n8n executes reminders or status logs, it writes back to Convex using stable composite deduplication keys (`overdue:${loanId}:${date}`), ensuring network retries never generate duplicate notifications or duplicate database logs.
 
+### Daily Overdue Reminders (n8n Cloud)
+
+The current [LendLoop – Daily Overdue Reminders workflow](https://lendloop-lime.app.n8n.cloud/workflow/ySAg2G8OQpZG1q4o) is configured to run daily at **09:00 Africa/Nairobi**. It is an **unpublished draft**; do not treat it as an active scheduled workflow until it has been tested and published in n8n.
+
+The workflow:
+
+1. Creates a timestamped, nonce-protected HMAC signature and calls Convex `GET /api/overdue-loans`.
+2. Splits the returned `overdueLoans` array so each loan is processed independently.
+3. Checks whether a reminder has already been logged, then prepares a personalized reminder for an eligible loan.
+4. Checks whether SMTP is configured. If configured, it sends the reminder email and logs successful delivery. If not, it uses the mock-reminder path instead. Delivery failures are logged separately.
+5. After successful delivery, prepares and signs an idempotent write-back to Convex `POST /api/loan-reminders`. Successful write-back marks the reminder recorded; write-back failures are logged on their own path.
+
+The read and write-back endpoints both require the shared HMAC secret configured for the Convex deployment and n8n. The write-back uses a per-loan, per-date deduplication key, so retrying the same write-back does not create a second reminder log.
+
+> **Repository export status:** `workflows/overdue-reminders.json` is an earlier export and does not yet include all of the SMTP, delivery-log, and write-back branches in the current n8n Cloud draft. Importing that file will not recreate the workflow described above.
+
 ---
 
 ## 🔒 Security & Data-Minimization Decisions
@@ -130,7 +146,7 @@ lendloop/
 │   └── http.ts             # Convex HTTP Router (/api/overdue-loans, /api/loan-reminders)
 ├── workflows/
 │   ├── request-notification.json # n8n workflow for loan request status notifications
-│   ├── overdue-reminders.json    # n8n daily scheduled workflow for overdue loan alerts
+│   ├── overdue-reminders.json    # Earlier n8n export; see current Cloud workflow section
 │   └── error-handler.json        # n8n error handling and alerting workflow
 ├── tests/
 │   ├── auth-rbac.test.ts         # Unit & negative tests for RBAC and loan invariants
@@ -206,7 +222,8 @@ Open **[http://localhost:5678](http://localhost:5678)** in your browser:
   1. `workflows/request-notification.json`
   2. `workflows/overdue-reminders.json`
   3. `workflows/error-handler.json`
-- Activate the workflows.
+- The checked-in overdue-reminders export is older than the current [n8n Cloud draft](https://lendloop-lime.app.n8n.cloud/workflow/ySAg2G8OQpZG1q4o); importing it will not include the SMTP and logging branches described above.
+- Configure the required credentials and environment variables before testing. Keep the Cloud workflow unpublished until its delivery and signed write-back paths have been validated.
 
 ### 6. Run the Next.js Development Server
 ```bash
