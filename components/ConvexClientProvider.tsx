@@ -3,7 +3,7 @@
 import { ReactNode, useEffect, Suspense } from "react";
 import { ClerkProvider, useAuth } from "@clerk/nextjs";
 import { ConvexProviderWithClerk } from "convex/react-clerk";
-import { ConvexReactClient, useMutation } from "convex/react";
+import { ConvexReactClient, useMutation, useConvexAuth } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { ConvexErrorBoundary } from "./ConvexErrorBoundary";
 
@@ -13,16 +13,16 @@ const convexUrl =
 const convex = new ConvexReactClient(convexUrl);
 
 function UserSynchronizer() {
-  const { isSignedIn } = useAuth();
+  const { isAuthenticated, isLoading } = useConvexAuth();
   const getOrCreateUser = useMutation(api.users.getOrCreateUser);
 
   useEffect(() => {
-    if (isSignedIn) {
+    if (isAuthenticated && !isLoading) {
       getOrCreateUser().catch((err) => {
         console.warn("User sync warning:", err);
       });
     }
-  }, [isSignedIn, getOrCreateUser]);
+  }, [isAuthenticated, isLoading, getOrCreateUser]);
 
   return null;
 }

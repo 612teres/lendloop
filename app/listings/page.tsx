@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery, useMutation } from "convex/react";
+import { useQuery, useMutation, useConvexAuth } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { TOOL_CATEGORIES } from "@/lib/constants";
 import { ToolFormModal } from "@/components/ToolFormModal";
@@ -20,7 +20,8 @@ import {
 
 export default function MyListingsPage() {
   const { isSignedIn } = useUser();
-  const myTools = useQuery(api.tools.getMyTools, isSignedIn ? {} : "skip");
+  const { isAuthenticated } = useConvexAuth();
+  const myTools = useQuery(api.tools.getMyTools, isAuthenticated ? {} : "skip");
   const deleteTool = useMutation(api.tools.deleteTool);
 
   const [searchQuery, setSearchQuery] = useState("");

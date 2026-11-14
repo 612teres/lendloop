@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery, useMutation } from "convex/react";
+import { useQuery, useMutation, useConvexAuth } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { AutomationHistoryBadge } from "@/components/AutomationHistoryBadge";
 import { useUser } from "@clerk/nextjs";
@@ -21,17 +21,18 @@ import {
 
 export default function RequestsPage() {
   const { isSignedIn } = useUser();
+  const { isAuthenticated } = useConvexAuth();
   const [activeTab, setActiveTab] = useState<"incoming" | "outgoing">("incoming");
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
 
   const incomingRequests = useQuery(
     api.loans.getMyIncomingRequests,
-    isSignedIn ? {} : "skip"
+    isAuthenticated ? {} : "skip"
   );
   const myBorrowRequests = useQuery(
     api.loans.getMyBorrowRequests,
-    isSignedIn ? {} : "skip"
+    isAuthenticated ? {} : "skip"
   );
 
   const approveRequest = useMutation(api.loans.approveRequest);

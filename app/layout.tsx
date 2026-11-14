@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import Link from "next/link";
 import "./globals.css";
 import { ConvexClientProvider } from "@/components/ConvexClientProvider";
 import { Navbar } from "@/components/Navbar";
@@ -42,11 +43,17 @@ export default function RootLayout({
             <div className="mx-auto max-w-7xl px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
               <p>&copy; 2026 LendLoop. All Rights Reserved.</p>
               <div className="flex items-center gap-4 text-zinc-400">
-                <span className="hover:text-zinc-600 cursor-pointer">Privacy</span>
+                <Link href="/privacy" className="hover:text-zinc-600">
+                  Privacy
+                </Link>
                 <span>&bull;</span>
-                <span className="hover:text-zinc-600 cursor-pointer">Terms</span>
+                <Link href="/terms" className="hover:text-zinc-600">
+                  Terms
+                </Link>
                 <span>&bull;</span>
-                <span className="hover:text-zinc-600 cursor-pointer">Sitemap</span>
+                <Link href="/sitemap.xml" className="hover:text-zinc-600">
+                  Sitemap
+                </Link>
               </div>
             </div>
           </footer>
