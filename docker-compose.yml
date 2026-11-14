@@ -6,13 +6,14 @@ services:
     ports:
       - "5678:5678"
     environment:
-      - N8N_BASIC_AUTH_ACTIVE=true
-      - N8N_BASIC_AUTH_USER=${N8N_USER:-admin}
-      - N8N_BASIC_AUTH_PASSWORD=${N8N_PASSWORD:-lendloopsecret123}
       - WEBHOOK_URL=${N8N_WEBHOOK_BASE_URL:-http://localhost:5678/}
       - WEBHOOK_SECRET=${WEBHOOK_SECRET:-lendloop-shared-hmac-secret-key-prod}
       - CONVEX_URL=${NEXT_PUBLIC_CONVEX_URL:-https://your-convex-deployment.convex.cloud}
-      - GENERIC_TIMEZONE=UTC
+      - SMTP_FROM_EMAIL=${SMTP_FROM_EMAIL:-}
+      - GENERIC_TIMEZONE=Africa/Nairobi
+      - TZ=Africa/Nairobi
+      - N8N_BLOCK_ENV_ACCESS_IN_NODE=false
+      - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true
       - N8N_DEFAULT_BINARY_DATA_MODE=default
       - EXECUTIONS_DATA_PRUNE=true
       - EXECUTIONS_DATA_MAX_AGE=168 # 7 days
