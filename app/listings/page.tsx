@@ -5,6 +5,7 @@ import { useQuery, useMutation, useConvexAuth } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { TOOL_CATEGORIES } from "@/lib/constants";
 import { ToolFormModal } from "@/components/ToolFormModal";
+import { ToolDetailsDrawer } from "@/components/ToolDetailsDrawer";
 import { useUser } from "@clerk/nextjs";
 import {
   Search,
@@ -16,6 +17,7 @@ import {
   ChevronRight,
   Wrench,
   AlertCircle,
+  Eye,
 } from "lucide-react";
 
 export default function MyListingsPage() {
@@ -28,6 +30,7 @@ export default function MyListingsPage() {
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [toolToEdit, setToolToEdit] = useState<any>(null);
+  const [viewingTool, setViewingTool] = useState<any>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const handleDelete = async (toolId: any, toolName: string) => {
@@ -206,6 +209,13 @@ export default function MyListingsPage() {
                       <td className="py-4 px-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
                           <button
+                            onClick={() => setViewingTool(tool)}
+                            title="View Photos & Details"
+                            className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 dark:hover:text-zinc-100 transition-colors"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </button>
+                          <button
                             onClick={() => setToolToEdit(tool)}
                             title="Edit Tool"
                             className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 dark:hover:text-zinc-100 transition-colors"
@@ -261,6 +271,14 @@ export default function MyListingsPage() {
         isOpen={!!toolToEdit}
         toolToEdit={toolToEdit}
         onClose={() => setToolToEdit(null)}
+      />
+
+      {/* Tool Details Sidebar Drawer */}
+      <ToolDetailsDrawer
+        isOpen={!!viewingTool}
+        onClose={() => setViewingTool(null)}
+        tool={viewingTool}
+        isOwner={true}
       />
     </div>
   );

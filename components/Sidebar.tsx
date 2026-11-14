@@ -14,6 +14,7 @@ import {
   Shield,
   LogOut,
   CheckCircle,
+  HelpCircle,
 } from "lucide-react";
 
 export function Sidebar() {
@@ -31,6 +32,7 @@ export function Sidebar() {
     { href: "/dashboard", label: "Tools Board", icon: LayoutGrid },
     { href: "/listings", label: "My Listings", icon: Package },
     { href: "/requests", label: "Requests", icon: Inbox },
+    { href: "/support", label: "Support & Issues", icon: HelpCircle },
     ...(isAdmin ? [{ href: "/admin", label: "Admin Panel", icon: Shield }] : []),
   ];
 

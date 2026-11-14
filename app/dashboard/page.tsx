@@ -6,6 +6,7 @@ import { api } from "@/convex/_generated/api";
 import { TOOL_CATEGORIES } from "@/lib/constants";
 import { ToolFormModal } from "@/components/ToolFormModal";
 import { RequestModal } from "@/components/RequestModal";
+import { ToolDetailsDrawer } from "@/components/ToolDetailsDrawer";
 import { AutomationHistoryBadge } from "@/components/AutomationHistoryBadge";
 import { useUser } from "@clerk/nextjs";
 import {
@@ -17,6 +18,7 @@ import {
   ChevronRight,
   ChevronDown,
   Wrench,
+  Eye,
 } from "lucide-react";
 
 export default function DashboardPage() {
@@ -27,6 +29,7 @@ export default function DashboardPage() {
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [borrowModalTool, setBorrowModalTool] = useState<{ id: any; name: string } | null>(null);
+  const [viewingTool, setViewingTool] = useState<any>(null);
 
   const currentUser = useQuery(
     api.users.getCurrentUser,
@@ -229,21 +232,33 @@ export default function DashboardPage() {
 
                       {/* Action */}
                       <td className="py-4 px-4 text-right">
-                        {isOwner ? (
-                          <span className="text-[11px] font-medium text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-2.5 py-1 rounded-md">
-                            Your Tool
-                          </span>
-                        ) : (
+                        <div className="flex items-center justify-end gap-2">
                           <button
-                            onClick={() =>
-                              setBorrowModalTool({ id: tool._id, name: tool.name })
-                            }
-                            className="inline-flex items-center gap-1 rounded-lg bg-[#F5B842] px-3 py-1.5 text-xs font-semibold text-zinc-950 shadow-2xs hover:bg-[#e6ab39] transition-colors"
+                            onClick={() => setViewingTool(tool)}
+                            className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-2.5 py-1.5 text-xs font-semibold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-colors shadow-2xs"
+                            title="View Photos & Details"
                           >
-                            <Calendar className="h-3 w-3" />
-                            Borrow
+                            <Eye className="h-3.5 w-3.5" />
+                            Details
                           </button>
-                        )}
+
+                          {isOwner ? (
+                            <span className="text-[11px] font-medium text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-2.5 py-1 rounded-md">
+                              Your Tool
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() =>
+                                setBorrowModalTool({ id: tool._id, name: tool.name })
+                              }
+                              disabled={!tool.isAvailable}
+                              className="inline-flex items-center gap-1 rounded-lg bg-[#F5B842] px-3 py-1.5 text-xs font-semibold text-zinc-950 shadow-2xs hover:bg-[#e6ab39] disabled:opacity-50 transition-colors"
+                            >
+                              <Calendar className="h-3 w-3" />
+                              Borrow
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -289,6 +304,15 @@ export default function DashboardPage() {
           onClose={() => setBorrowModalTool(null)}
         />
       )}
+
+      {/* Tool Details Sidebar Drawer */}
+      <ToolDetailsDrawer
+        isOpen={!!viewingTool}
+        onClose={() => setViewingTool(null)}
+        tool={viewingTool}
+        isOwner={currentUser?._id === viewingTool?.ownerId}
+        onBorrow={(tool) => setBorrowModalTool({ id: tool._id, name: tool.name })}
+      />
     </div>
   );
 }
