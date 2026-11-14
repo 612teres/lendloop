@@ -1,0 +1,222 @@
+{
+  "name": "LendLoop - Request Notification Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "lendloop-request",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "1",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [180, 300],
+      "webhookId": "lendloop-request-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Production HMAC-SHA256 signature and replay attack verification\nconst crypto = require('crypto');\nconst secret = $env.WEBHOOK_SECRET || 'lendloop-shared-hmac-secret-key-prod';\n\nconst item = $input.first();\nconst headers = item.json.headers || {};\nconst body = item.json.body || {};\nconst rawBody = typeof body === 'string' ? body : JSON.stringify(body);\n\nconst signature = headers['x-lendloop-signature'] || headers['X-LendLoop-Signature'];\nconst timestamp = headers['x-lendloop-timestamp'] || headers['X-LendLoop-Timestamp'];\nconst nonce = headers['x-lendloop-nonce'] || headers['X-LendLoop-Nonce'];\n\nif (!signature || !timestamp || !nonce) {\n  throw new Error('Unauthorized: Missing HMAC security headers');\n}\n\n// 5-minute replay window check\nconst now = Date.now();\nconst reqTime = parseInt(timestamp, 10);\nif (isNaN(reqTime) || Math.abs(now - reqTime) > 300000) {\n  throw new Error(`Unauthorized: Timestamp outside acceptable window (drift: ${Math.round(Math.abs(now - reqTime)/1000)}s)`);\n}\n\n// Verify HMAC\nconst message = `${timestamp}:${nonce}:${rawBody}`;\nconst expectedSignature = crypto.createHmac('sha256', secret).update(message).digest('hex');\nconst cleanSig = signature.replace(/^sha256=/, '');\n\nif (cleanSig !== expectedSignature) {\n  throw new Error('Unauthorized: Invalid HMAC signature');\n}\n\nconst payload = typeof body === 'string' ? JSON.parse(body) : body;\nreturn [{ json: payload }];"
+      },
+      "id": "2",
+      "name": "Verify HMAC & Replay",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [400, 300]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.event }}",
+                    "rightValue": "loan_requested",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.event }}",
+                    "rightValue": "loan_approved",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.event }}",
+                    "rightValue": "loan_declined",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.event }}",
+                    "rightValue": "loan_returned",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        }
+      },
+      "id": "3",
+      "name": "Switch by Event Type",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [640, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nconst message = `[LendLoop Alert] Hi ${data.lenderName}, neighbor ${data.borrowerName} requested to borrow '${data.toolName}' from ${data.startDate} to ${data.endDate}. Please sign in to approve or decline.`;\nconsole.log(`[Notification Dispatched to ${data.recipientEmail}]:`, message);\nreturn [{ json: { recipient: data.recipientEmail, message, status: 'dispatched', event: 'loan_requested', loanId: data.loanId } }];"
+      },
+      "id": "4",
+      "name": "Notify Lender (New Request)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 150]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nconst message = `[LendLoop Alert] Great news ${data.borrowerName}! Your request to borrow '${data.toolName}' has been APPROVED by ${data.lenderName} (${data.startDate} to ${data.endDate}). Happy DIY-ing!`;\nconsole.log(`[Notification Dispatched to ${data.recipientEmail}]:`, message);\nreturn [{ json: { recipient: data.recipientEmail, message, status: 'dispatched', event: 'loan_approved', loanId: data.loanId } }];"
+      },
+      "id": "5",
+      "name": "Notify Borrower (Approved)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 270]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nconst message = `[LendLoop Alert] Hi ${data.borrowerName}, your request for '${data.toolName}' was declined by ${data.lenderName}. Note: ${data.reason || 'Tool unavailable'}.`;\nconsole.log(`[Notification Dispatched to ${data.recipientEmail}]:`, message);\nreturn [{ json: { recipient: data.recipientEmail, message, status: 'dispatched', event: 'loan_declined', loanId: data.loanId } }];"
+      },
+      "id": "6",
+      "name": "Notify Borrower (Declined)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 390]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nconst message = `[LendLoop Alert] Loan completed! '${data.toolName}' was marked returned. Thank you for participating in the LendLoop community!`;\nconsole.log(`[Notification Dispatched to ${data.recipientEmail}]:`, message);\nreturn [{ json: { recipient: data.recipientEmail, message, status: 'dispatched', event: 'loan_returned', loanId: data.loanId } }];"
+      },
+      "id": "7",
+      "name": "Notify Borrower (Returned)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 510]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Verify HMAC & Replay",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify HMAC & Replay": {
+      "main": [
+        [
+          {
+            "node": "Switch by Event Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch by Event Type": {
+      "main": [
+        [
+          {
+            "node": "Notify Lender (New Request)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Notify Borrower (Approved)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Notify Borrower (Declined)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Notify Borrower (Returned)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "LendLoop - Error Handler"
+  }
+}
