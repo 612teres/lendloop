@@ -69,9 +69,6 @@ export const recordAutomationLog = mutation({
   },
 });
 
-/**
- * Internal Query: Fetch pending events from the Outbox for dispatching.
- */
 export const getPendingOutboxEvents = internalQuery({
   args: {
     limit: v.optional(v.number()),
@@ -85,9 +82,6 @@ export const getPendingOutboxEvents = internalQuery({
   },
 });
 
-/**
- * Internal Mutation: Update outbox event status after dispatch attempt.
- */
 export const updateOutboxEventStatus = internalMutation({
   args: {
     eventId: v.id("automationEvents"),
@@ -111,9 +105,6 @@ export const updateOutboxEventStatus = internalMutation({
   },
 });
 
-/**
- * Query: Fetch automation activity timeline for a loan.
- */
 export const getLoanAutomationHistory = query({
   args: {
     loanId: v.id("loans"),
@@ -127,9 +118,6 @@ export const getLoanAutomationHistory = query({
   },
 });
 
-/**
- * Query: Fetch recent notifications for the authenticated user (borrower or lender).
- */
 export const getMyNotifications = query({
   args: {},
   handler: async (ctx) => {
